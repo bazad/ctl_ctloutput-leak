@@ -77,7 +77,6 @@
 
 #include <errno.h>
 #include <mach/mach.h>
-#include <mach/mach_vm.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdbool.h>
@@ -91,6 +90,7 @@
 
 // ---- Header files not available on iOS ---------------------------------------------------------
 
+#include <mach/mach_vm.h>
 #include <sys/sys_domain.h>
 #include <sys/kern_control.h>
 
@@ -98,6 +98,25 @@
 
 // If we're not on x86_64, then we probably don't have access to the above headers. The following
 // definitions are copied directly from the macOS header files.
+
+// ---- Definitions from mach/mach_vm.h -----------------------------------------------------------
+
+extern
+kern_return_t mach_vm_allocate
+(
+	vm_map_t target,
+	mach_vm_address_t *address,
+	mach_vm_size_t size,
+	int flags
+);
+
+extern
+kern_return_t mach_vm_deallocate
+(
+	vm_map_t target,
+	mach_vm_address_t address,
+	mach_vm_size_t size
+);
 
 // ---- Definitions from sys/sys_domain.h ---------------------------------------------------------
 

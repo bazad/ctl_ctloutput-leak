@@ -7,13 +7,14 @@ The `ctl_ctloutput` function in macOS High Sierra 10.13 ignores the return value
 ctl_ctloutput-leak is a proof-of-concept exploit that attempts to trigger this information leak.
 Exploitation requires root privileges.
 
-This exploit has been confirmed to work on macOS High Sierra 10.13.1 Beta 17B25c.
+This exploit has been confirmed to work on macOS High Sierra 10.13.1 Beta 17B25c and iOS 10.1.1
+14B100 (under mach_portal).
 
 ### The vulnerability
 
-Here is the relevant part of `ctl_ctloutput` on [macOS High Sierra 10.13][source]:
+Here is the relevant part of `ctl_ctloutput` on [macOS High Sierra 10.13][ctl_ctloutput source]:
 
-[source]: https://opensource.apple.com/source/xnu/xnu-4570.1.46/bsd/kern/kern_control.c.auto.html
+[ctl_ctloutput source]: https://opensource.apple.com/source/xnu/xnu-4570.1.46/bsd/kern/kern_control.c.auto.html
 
 	if (sopt->sopt_valsize && sopt->sopt_val) {
 		MALLOC(data, void *, sopt->sopt_valsize, M_TEMP,	// (a) data is allocated
@@ -57,10 +58,13 @@ This code does the following:
    implementation should process the input buffer, possibly modifying it and shortening it, and
    return a result code. However, the implementation is free to assume that the supplied buffer has
    already been initialized (since theoretically it comes from user space), and hence several
-   implementations don't modify the buffer at all. The NECP function `necp_ctl_getopt`, for
-   example, just returns 0 without processing the data buffer at all.
+   implementations don't modify the buffer at all. The NECP function
+   [`necp_ctl_getopt`][necp_ctl_getopt source], for example, just returns 0 without processing the
+   data buffer at all.
 4. Finally, if the real `getsockopt` implementation doesn't return an error, `ctl_ctloutput` calls
    `sooptcopyout` to copy the data buffer back to user space.
+
+[necp_ctl_getopt source]: https://opensource.apple.com/source/xnu/xnu-4570.1.46/bsd/net/necp.c.auto.html
 
 Thus, by specifying an unmapped data address to `getsockopt`, we can cause a heap buffer of a
 controlled size to be allocated, prevent the contents of that buffer from being initialized, and
@@ -71,8 +75,9 @@ data to userspace.
 
 It turns out that this is a pretty easy race to win. While testing on my 2015 Macbook Pro, the mean
 number of attempts to win the race was never more than 600, and the median was never more than 5.
-(This testing was conducted with `DEBUG` off, since the printfs dramatically slow down the
-exploit.)
+On iOS 10.1.1 on an iPhone 7 the race was even easier to win, typically taking no more than 2
+attempts. (This testing was conducted with `DEBUG` off, since the printfs dramatically slow down
+the exploit.)
 
 ### Usage
 
