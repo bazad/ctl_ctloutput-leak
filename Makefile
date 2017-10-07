@@ -1,5 +1,6 @@
 TARGET = ctl_ctloutput-leak
 
+DEBUG   ?= NO
 ARCH    ?= x86_64
 SDK     ?= macosx
 
@@ -12,6 +13,10 @@ CC       := $(CLANG) -isysroot $(SYSROOT) -arch $(ARCH)
 CODESIGN := codesign
 
 CFLAGS = -O2 -Wall -Werror -Wpedantic -Wno-gnu
+
+ifeq ($(DEBUG),YES)
+DEFINES += -DDEBUG=1
+endif
 
 FRAMEWORKS =
 

