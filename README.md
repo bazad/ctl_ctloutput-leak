@@ -1,4 +1,4 @@
-## ctl_ctloutput-leak
+# ctl_ctloutput-leak
 
 <!-- Brandon Azad -->
 
@@ -10,7 +10,7 @@ Exploitation requires root privileges.
 This exploit has been confirmed to work on macOS High Sierra 10.13.1 Beta 17B25c and iOS 10.1.1
 14B100 (under mach_portal).
 
-### The vulnerability
+## The vulnerability: CVE-2017-13868
 
 Here is the relevant part of `ctl_ctloutput` on [macOS High Sierra 10.13][ctl_ctloutput source]:
 
@@ -79,7 +79,7 @@ On iOS 10.1.1 on an iPhone 7 the race was even easier to win, typically taking n
 attempts. (This testing was conducted with `DEBUG` off, since the printfs dramatically slow down
 the exploit.)
 
-### Usage
+## Usage
 
 To build, run `make`. See the top of the Makefile for various build options.
 
@@ -95,7 +95,15 @@ Run the exploit by specifying the target leak size on the command line:
 	000060:  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 	000070:  00 00 00 00 00 00 00 00  ef be ad de ef be ad de
 
-### License
+## Timeline
+
+I reported this issue to Apple on October 7, 2017. It was assigned CVE-2017-13868. Apple fixed the
+issues in [macOS 10.13.2] and [iOS 11.2].
+
+[macOS 10.13.2]: https://support.apple.com/en-us/HT208331
+[iOS 11.2]: https://support.apple.com/en-us/HT208334
+
+## License
 
 The ctl_ctloutput-leak code is released into the public domain. As a courtesy I ask that if you
 reference or use any of this code you attribute it to me.

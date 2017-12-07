@@ -2,6 +2,8 @@
  * ctl_ctloutput-leak.c
  * Brandon Azad
  *
+ * CVE-2017-13868
+ *
  * While looking through the source code of XNU version 4570.1.46, I noticed that the function
  * ctl_ctloutput() in the file bsd/kern/kern_control.c does not check the return value of
  * sooptcopyin(), which makes it possible to leak the uninitialized contents of a kernel heap

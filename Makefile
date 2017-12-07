@@ -4,11 +4,11 @@ DEBUG   ?= NO
 ARCH    ?= x86_64
 SDK     ?= macosx
 
-CLANG    := $(shell xcrun --sdk $(SDK) --find clang)
-ifeq ($(CLANG),)
-$(error Could not find clang for SDK $(SDK))
-endif
 SYSROOT  := $(shell xcrun --sdk $(SDK) --show-sdk-path)
+ifeq ($(SYSROOT),)
+$(error Could not find SDK "$(SDK)")
+endif
+CLANG    := $(shell xcrun --sdk $(SDK) --find clang)
 CC       := $(CLANG) -isysroot $(SYSROOT) -arch $(ARCH)
 CODESIGN := codesign
 
