@@ -16,35 +16,37 @@ Here is the relevant part of `ctl_ctloutput` on [macOS High Sierra 10.13][ctl_ct
 
 [ctl_ctloutput source]: https://opensource.apple.com/source/xnu/xnu-4570.1.46/bsd/kern/kern_control.c.auto.html
 
-	if (sopt->sopt_valsize && sopt->sopt_val) {
-		MALLOC(data, void *, sopt->sopt_valsize, M_TEMP,	// (a) data is allocated
-			M_WAITOK);					//     without M_ZERO.
-		if (data == NULL)
-			return (ENOMEM);
-		/*
-		 * 4108337 - copy user data in case the
-		 * kernel control needs it
-		 */
-		error = sooptcopyin(sopt, data,				// (b) sooptcopyin() is
-			sopt->sopt_valsize, sopt->sopt_valsize);	//     called to fill the
-	}								//     buffer; the return
-	len = sopt->sopt_valsize;					//     value is ignored.
-	socket_unlock(so, 0);
-	error = (*kctl->getopt)(kctl->kctlref, kcb->unit,		// (c) The getsockopt()
-			kcb->userdata, sopt->sopt_name,			//     implementation is
-				data, &len);				//     called to process
-	if (data != NULL && len > sopt->sopt_valsize)			//     the buffer.
-		panic_plain("ctl_ctloutput: ctl %s returned "
-			"len (%lu) > sopt_valsize (%lu)\n",
-				kcb->kctl->name, len,
-				sopt->sopt_valsize);
-	socket_lock(so, 0);
-	if (error == 0) {
-		if (data != NULL)
-			error = sooptcopyout(sopt, data, len);		// (d) If (c) succeeded,
-		else							//     then the data buffer
-			sopt->sopt_valsize = len;			//     is copied out to
-	}								//     userspace.
+```c
+if (sopt->sopt_valsize && sopt->sopt_val) {
+	MALLOC(data, void *, sopt->sopt_valsize, M_TEMP,	// (a) data is allocated
+		M_WAITOK);					//     without M_ZERO.
+	if (data == NULL)
+		return (ENOMEM);
+	/*
+	 * 4108337 - copy user data in case the
+	 * kernel control needs it
+	 */
+	error = sooptcopyin(sopt, data,				// (b) sooptcopyin() is
+		sopt->sopt_valsize, sopt->sopt_valsize);	//     called to fill the
+}								//     buffer; the return
+len = sopt->sopt_valsize;					//     value is ignored.
+socket_unlock(so, 0);
+error = (*kctl->getopt)(kctl->kctlref, kcb->unit,		// (c) The getsockopt()
+		kcb->userdata, sopt->sopt_name,			//     implementation is
+			data, &len);				//     called to process
+if (data != NULL && len > sopt->sopt_valsize)			//     the buffer.
+	panic_plain("ctl_ctloutput: ctl %s returned "
+		"len (%lu) > sopt_valsize (%lu)\n",
+			kcb->kctl->name, len,
+			sopt->sopt_valsize);
+socket_lock(so, 0);
+if (error == 0) {
+	if (data != NULL)
+		error = sooptcopyout(sopt, data, len);		// (d) If (c) succeeded,
+	else							//     then the data buffer
+		sopt->sopt_valsize = len;			//     is copied out to
+}								//     userspace.
+```
 
 This code does the following:
 1. It allocates a kernel heap buffer for the data parameter to `getsockopt`, without specifying the
